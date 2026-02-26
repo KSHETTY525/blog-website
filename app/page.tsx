@@ -1,65 +1,245 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type Post = {
+  id: string;
+  title: string;
+  caption: string;
+  imageUrl: string;
+};
 
 export default function Home() {
+  const [showForm, setShowForm] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [title, setTitle] = useState("");
+  const [caption, setCaption] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+
+  // 🔥 For delete modal
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const [editId, setEditId] = useState<string | null>(null);
+
+  // Fetch posts
+  const fetchPosts = async () => {
+    const res = await fetch("/api/posts");
+    const data = await res.json();
+    setPosts(data);
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  // 🔥 Confirm Delete Function
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+
+    await fetch("/api/posts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: deleteId }),
+    });
+
+    setDeleteId(null);
+    fetchPosts();
+  };
+
+  // Submit post
+  const handleSubmit = async () => {
+    if (!title || !caption) return;
+
+    try {
+      if (editId) {
+        console.log("Updating ID:", editId);
+
+        const res = await fetch("/api/posts", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editId,
+            title,
+            caption,
+          }),
+        });
+
+        const data = await res.json();
+        console.log("Update response:", data);
+
+        setEditId(null);
+      } else {
+        if (!image) return;
+
+        const fileName = `${Date.now()}-${image.name}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("blog-images")
+          .upload(fileName, image);
+
+        if (uploadError) {
+          console.error(uploadError);
+          return;
+        }
+
+        const { data } = supabase.storage
+          .from("blog-images")
+          .getPublicUrl(fileName);
+
+        const imageUrl = data.publicUrl;
+
+        await fetch("/api/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            caption,
+            imageUrl,
+          }),
+        });
+      }
+
+      setTitle("");
+      setCaption("");
+      setImage(null);
+      setShowForm(false);
+
+      fetchPosts();
+    } catch (error) {
+      console.error("Submit error:", error);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex min-h-screen bg-black text-white">
+      {/* Sidebar */}
+      <div className="w-64 bg-gray-900 p-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gray-500 rounded-full" />
+          <div>
+            <p className="font-bold">User Name</p>
+            <p className="text-sm text-gray-400">Blog Profile</p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </div>
+
+      {/* Main Body */}
+      <div className="flex-1 p-10">
+        <div className="flex justify-center">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-white text-black px-6 py-3 rounded-lg"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            Create New Post
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="mt-8 max-w-md mx-auto border border-gray-600 p-6 rounded-lg shadow">
+            <input
+              type="text"
+              placeholder="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full border border-gray-500 bg-black p-2 mb-4 rounded"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files) {
+                  setImage(e.target.files[0]);
+                }
+              }}
+              className="w-full border border-gray-500 bg-black p-2 mb-4 rounded"
+            />
+
+            <textarea
+              placeholder="Caption"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              className="w-full border border-gray-500 bg-black p-2 mb-4 rounded"
+            />
+
+            <button
+              onClick={handleSubmit}
+              className="bg-green-600 text-white px-4 py-2 rounded w-full"
+            >
+              {editId ? "Update Post" : "Post"}
+            </button>
+          </div>
+        )}
+
+        {/* Posts */}
+        <div className="mt-10 grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((post) => (
+            <div
+              key={post.id}
+              className="border border-gray-700 p-4 rounded shadow"
+            >
+              <img
+                src={post.imageUrl}
+                alt={post.title}
+                className="w-full h-60 object-cover rounded mb-4"
+              />
+              <h2 className="text-xl font-bold">{post.title}</h2>
+              <p className="text-gray-400">{post.caption}</p>
+
+              <div className="flex justify-between mt-4">
+                {/* 🔵 Edit Button */}
+                <button
+                  onClick={() => {
+                    setEditId(post.id);
+                    setTitle(post.title);
+                    setCaption(post.caption);
+                    setShowForm(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                >
+                  Edit
+                </button>
+
+                {/* 🔴 Delete Button */}
+                <button
+                  onClick={() => setDeleteId(post.id)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      </main>
+      </div>
+
+      {/* 🔥 Delete Confirmation Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-white text-black p-6 rounded-lg shadow-lg w-80">
+            <h2 className="text-lg font-semibold mb-4 text-center">
+              Are you sure you want to delete?
+            </h2>
+
+            <div className="flex justify-between">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="bg-gray-400 text-white px-4 py-2 rounded"
+              >
+                No
+              </button>
+
+              <button
+                onClick={confirmDelete}
+                className="bg-red-600 text-white px-4 py-2 rounded"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
