@@ -8,6 +8,7 @@ type Post = {
   title: string;
   caption: string;
   imageUrl: string;
+  createdAt: string;
 };
 
 export default function Home() {
@@ -111,30 +112,52 @@ export default function Home() {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+
+    const day = date.getDate();
+    const month = date.toLocaleString("default", { month: "long" });
+    const year = date.getFullYear();
+
+    const getOrdinal = (n: number) => {
+      if (n > 3 && n < 21) return "th";
+      switch (n % 10) {
+        case 1:
+          return "st";
+        case 2:
+          return "nd";
+        case 3:
+          return "rd";
+        default:
+          return "th";
+      }
+    };
+
+    return `${day}${getOrdinal(day)} ${month} ${year}`;
+  };
+
   return (
-    <div className="flex min-h-screen bg-black text-white">
+    <div className="flex min-h-screen bg-white text-black">
       {/* Sidebar */}
-      <div className="w-64 bg-gray-900 p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gray-500 rounded-full" />
-          <div>
-            <p className="font-bold">User Name</p>
-            <p className="text-sm text-gray-400">Blog Profile</p>
-          </div>
+      <div className="h-screen bg-[#0b1a33] flex flex-col p-6">
+        <div>
+          <div className="w-16 h-16 bg-gray-400 rounded-full"></div>
+          <h2 className="font-bold text-lg mt-2">User Name</h2>
+          <p className="text-gray-300">Blog Profile</p>
+        </div>
+
+        <div className="mt-auto">
+          <button
+            className="bg-white text-black px-6 py-3 rounded-lg"
+            onClick={() => setShowForm(!showForm)}
+          >
+            Create New Post
+          </button>
         </div>
       </div>
 
       {/* Main Body */}
       <div className="flex-1 p-10">
-        <div className="flex justify-center">
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-white text-black px-6 py-3 rounded-lg"
-          >
-            Create New Post
-          </button>
-        </div>
-
         {showForm && (
           <div className="mt-8 max-w-md mx-auto border border-gray-600 p-6 rounded-lg shadow">
             <input
@@ -186,6 +209,10 @@ export default function Home() {
               />
               <h2 className="text-xl font-bold">{post.title}</h2>
               <p className="text-gray-400">{post.caption}</p>
+
+              <p className="text-gray-500 text-xs mt-1">
+                {formatDate(post.createdAt)}
+              </p>
 
               <div className="flex justify-between mt-4">
                 {/* 🔵 Edit Button */}
